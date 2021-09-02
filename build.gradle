@@ -76,6 +76,7 @@ checkerFramework {
     '-AcheckPurityAnnotations',
     '-ArequirePrefixInWarningSuppressions',
     '-AwarnUnneededSuppressions',
+    '-AnoJreVersionCheck',
   ]
 }
 
