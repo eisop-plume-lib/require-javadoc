@@ -3,7 +3,7 @@ plugins {
   id 'application'
 
   // To create a fat jar build/libs/require-javadoc-all.jar, run: ./gradlew shadowJar
-  id 'com.github.johnrengelman.shadow' version '7.0.0'
+  id 'com.github.johnrengelman.shadow' version '7.1.2'
 
   // Formatting is disabled due to poor handling of type annotations; wait until
   // this issue is fixed: https://github.com/google/google-java-format/issues/5
@@ -14,7 +14,7 @@ plugins {
   id("net.ltgt.errorprone") version "2.0.2"
 
   // Checker Framework pluggable type-checking
-  id 'org.checkerframework' version '0.5.24'
+  id 'org.checkerframework' version '0.6.7'
 }
 
 repositories {
@@ -27,7 +27,7 @@ dependencies {
   } else {
     implementation 'org.plumelib:options:2.0.0'
   }
-  implementation group: 'com.github.javaparser', name: 'javaparser-core', version: '3.22.1'
+  implementation group: 'com.github.javaparser', name: 'javaparser-core', version: '3.24.0'
 }
 
 // To upload to Maven Central, see instructions in the file.
@@ -43,7 +43,7 @@ application {
 /// Error Prone linter
 
 dependencies {
-  errorprone("com.google.errorprone:error_prone_core:2.9.0")
+  errorprone("com.google.errorprone:error_prone_core:2.10.0")
   // JDK 8 support for Error Prone:
   errorproneJavac("com.google.errorprone:javac:9+181-r4173-1")
 }
