@@ -8,6 +8,7 @@ import com.github.javaparser.Range;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Node;
+import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.PackageDeclaration;
 import com.github.javaparser.ast.body.AnnotationDeclaration;
 import com.github.javaparser.ast.body.AnnotationMemberDeclaration;
@@ -17,10 +18,23 @@ import com.github.javaparser.ast.body.EnumConstantDeclaration;
 import com.github.javaparser.ast.body.EnumDeclaration;
 import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.Parameter;
 import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.comments.Comment;
 import com.github.javaparser.ast.expr.AnnotationExpr;
+import com.github.javaparser.ast.expr.AssignExpr;
+import com.github.javaparser.ast.expr.Expression;
+import com.github.javaparser.ast.expr.FieldAccessExpr;
+import com.github.javaparser.ast.expr.NameExpr;
+import com.github.javaparser.ast.expr.ThisExpr;
+import com.github.javaparser.ast.expr.UnaryExpr;
 import com.github.javaparser.ast.nodeTypes.NodeWithJavadoc;
+import com.github.javaparser.ast.stmt.BlockStmt;
+import com.github.javaparser.ast.stmt.ExpressionStmt;
+import com.github.javaparser.ast.stmt.ReturnStmt;
+import com.github.javaparser.ast.stmt.Statement;
+import com.github.javaparser.ast.type.PrimitiveType;
+import com.github.javaparser.ast.type.Type;
 import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
 import java.io.File;
 import java.io.IOException;
@@ -41,6 +55,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.NonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.plumelib.options.Option;
 import org.plumelib.options.Options;
 
@@ -68,6 +83,48 @@ public class RequireJavadoc {
   /** If true, don't check elements with private access. */
   @Option("Don't report problems in elements with private access")
   public boolean dont_require_private;
+
+  /**
+   * If true, don't check constructors with zero formal parameters. These are sometimes called
+   * "default constructors", though that term means a no-argument constructor that the compiler
+   * synthesized when the programmer didn't write one.
+   */
+  @Option("Don't report problems in constructors with zero formal parameters")
+  public boolean dont_require_noarg_constructor;
+
+  /**
+   * If true, don't check trivial getters and setters.
+   *
+   * <p>Trivial getters and setters are of the form:
+   *
+   * <pre>{@code
+   * SomeType getFoo() {
+   *   return foo;
+   * }
+   *
+   * SomeType foo() {
+   *   return foo;
+   * }
+   *
+   * void setFoo(SomeType foo) {
+   *   this.foo = foo;
+   * }
+   *
+   * boolean hasFoo() {
+   *   return foo;
+   * }
+   *
+   * boolean isFoo() {
+   *   return foo;
+   * }
+   *
+   * boolean notFoo() {
+   *   return !foo;
+   * }
+   * }</pre>
+   */
+  @Option("Don't report problems in trivial getters and setters")
+  public boolean dont_require_trivial_properties;
 
   /** If true, don't check type declarations: classes, interfaces, enums, annotations. */
   @Option("Don't report problems in type declarations")
@@ -97,22 +154,22 @@ public class RequireJavadoc {
   public boolean verbose = false;
 
   /** All the errors this program will report. */
-  List<String> errors = new ArrayList<>();
+  private List<String> errors = new ArrayList<>();
 
   /** The Java files to be checked. */
-  List<Path> javaFiles = new ArrayList<Path>();
+  private List<Path> javaFiles = new ArrayList<Path>();
 
   /** The current working directory, for making relative pathnames. */
-  Path workingDirRelative = Paths.get("");
+  private Path workingDirRelative = Paths.get("");
 
   /** The current working directory, for making relative pathnames. */
-  Path workingDirAbsolute = Paths.get("").toAbsolutePath();
+  private Path workingDirAbsolute = Paths.get("").toAbsolutePath();
 
   /**
    * The main entry point for the require-javadoc program. See documentation at <a
    * href="https://github.com/plume-lib/require-javadoc#readme">https://github.com/plume-lib/require-javadoc#readme</a>.
    *
-   * @param args the command-line arguments; see the README file.
+   * @param args the command-line arguments; see the README file
    */
   public static void main(String[] args) {
     RequireJavadoc rj = new RequireJavadoc();
@@ -203,7 +260,10 @@ public class RequireJavadoc {
   }
 
   /** Collects files into the {@link #javaFiles} variable. */
-  class JavaFilesVisitor extends SimpleFileVisitor<Path> {
+  private class JavaFilesVisitor extends SimpleFileVisitor<Path> {
+
+    /** Create a new JavaFilesVisitor. */
+    public JavaFilesVisitor() {}
 
     @Override
     public FileVisitResult visitFile(Path file, BasicFileAttributes attr) {
@@ -249,7 +309,7 @@ public class RequireJavadoc {
    * @param name the name of a Java element. It is a simple name, except for packages.
    * @return true if no warnings should be issued about the element
    */
-  boolean shouldNotRequire(String name) {
+  private boolean shouldNotRequire(String name) {
     if (dont_require == null) {
       return false;
     }
@@ -267,7 +327,7 @@ public class RequireJavadoc {
    * @param fileName the name of a Java file or directory
    * @return true if the file or directory should be skipped
    */
-  boolean shouldExclude(String fileName) {
+  private boolean shouldExclude(String fileName) {
     if (exclude == null) {
       return false;
     }
@@ -279,27 +339,328 @@ public class RequireJavadoc {
   }
 
   /**
-   * Return true if the given file or directory should be skipped.
+   * Return true if the given file or directory should be skipped, based on the {@code --exclude}
+   * command-line argument.
    *
    * @param path a Java file or directory
    * @return true if the file or directory should be skipped
    */
-  boolean shouldExclude(Path path) {
+  private boolean shouldExclude(Path path) {
     return shouldExclude(path.toString());
+  }
+
+  /** A property method's return type. */
+  private enum ReturnType {
+    /** The return type is void. */
+    VOID,
+    /** The return type is boolean. */
+    BOOLEAN,
+    /** The return type is non-void. */
+    NON_VOID;
+  }
+
+  /** The type of property method: a getter or setter. */
+  private enum PropertyKind {
+    /** A method of the form {@code SomeType getFoo()}. */
+    GETTER("get", 0, ReturnType.NON_VOID),
+    /** A method of the form {@code SomeType foo()}. */
+    GETTER_NO_PREFIX("", 0, ReturnType.NON_VOID),
+    /** A method of the form {@code boolean hasFoo()}. */
+    GETTER_HAS("has", 0, ReturnType.BOOLEAN),
+    /** A method of the form {@code boolean isFoo()}. */
+    GETTER_IS("is", 0, ReturnType.BOOLEAN),
+    /** A method of the form {@code boolean notFoo()}. */
+    GETTER_NOT("not", 0, ReturnType.BOOLEAN),
+    /** A method of the form {@code void setFoo(SomeType arg)}. */
+    SETTER("set", 1, ReturnType.VOID),
+    /** Not a getter or setter. */
+    NOT_PROPERTY("", -1, ReturnType.VOID);
+
+    /** The prefix for the method name: "get", "", "has", "is", "not", or "set". */
+    final String prefix;
+
+    /** The number of required formal parameters: 0 or 1. */
+    final int requiredParams;
+
+    /** The return type. */
+    final ReturnType returnType;
+
+    /**
+     * Create a new PropertyKind.
+     *
+     * @param prefix the prefix for the method name: "get", "has", "is", "not", or "set"
+     * @param requiredParams the number of required formal parameters: 0 or 1
+     * @param returnType the return type
+     */
+    PropertyKind(String prefix, int requiredParams, ReturnType returnType) {
+      this.prefix = prefix;
+      this.requiredParams = requiredParams;
+      this.returnType = returnType;
+    }
+
+    /**
+     * Returns true if this is a getter.
+     *
+     * @return true if this is a getter
+     */
+    boolean isGetter() {
+      return this != SETTER;
+    }
+
+    /**
+     * Return the PropertyKind for the given method, or null if it isn't a property accessor method.
+     *
+     * @param md the method to check
+     * @return the PropertyKind for the given method, or null
+     */
+    static PropertyKind fromMethodDeclaration(MethodDeclaration md) {
+      String methodName = md.getNameAsString();
+      if (methodName.startsWith("get")) {
+        return GETTER;
+      } else if (methodName.startsWith("has")) {
+        return GETTER_HAS;
+      } else if (methodName.startsWith("is")) {
+        return GETTER_IS;
+      } else if (methodName.startsWith("not")) {
+        return GETTER_NOT;
+      } else if (methodName.startsWith("set")) {
+        return SETTER;
+      } else {
+        return GETTER_NO_PREFIX;
+      }
+    }
+  }
+
+  /**
+   * Return true if this method declaration is a trivial getter or setter.
+   *
+   * <ul>
+   *   <li>A trivial getter is named {@code getFoo}, {@code foo}, {@code hasFoo}, {@code isFoo}, or
+   *       {@code notFoo}, has no formal parameters, and has a body of the form {@code return foo}
+   *       or {@code return this.foo} (except for {@code notFoo}, in which case the body is
+   *       negated).
+   *   <li>A trivial setter is named {@code setFoo}, has one formal parameter named {@code foo}, and
+   *       has a body of the form {@code this.foo = foo}.
+   * </ul>
+   *
+   * @param md the method to check
+   * @return true if this method is a trivial getter or setter
+   */
+  private boolean isTrivialGetterOrSetter(MethodDeclaration md) {
+    PropertyKind kind = PropertyKind.fromMethodDeclaration(md);
+    if (kind != PropertyKind.GETTER_NO_PREFIX) {
+      if (isTrivialGetterOrSetter(md, kind)) {
+        return true;
+      }
+    }
+    return isTrivialGetterOrSetter(md, PropertyKind.GETTER_NO_PREFIX);
+  }
+
+  /**
+   * Return true if this method declaration is a trivial getter or setter of the given kind.
+   *
+   * @see #isTrivialGetterOrSetter(MethodDeclaration)
+   * @param md the method to check
+   * @param propertyKind the kind of property
+   * @return true if this method is a trivial getter or setter
+   */
+  private boolean isTrivialGetterOrSetter(MethodDeclaration md, PropertyKind propertyKind) {
+    String propertyName = propertyName(md, propertyKind);
+    return propertyName != null
+        && hasCorrectSignature(md, propertyKind, propertyName)
+        && hasCorrectBody(md, propertyKind, propertyName);
+  }
+
+  /**
+   * Returns the name of the property, if the method is a getter or setter of the given kind.
+   * Otherwise returns null.
+   *
+   * <p>Examines the method's name, but not its signature or body. Also does not check that the
+   * given property name corresponds to an existing field.
+   *
+   * @param md the method to test
+   * @param propertyKind the type of property method
+   * @return the name of the property, or null
+   */
+  private @Nullable String propertyName(MethodDeclaration md, PropertyKind propertyKind) {
+    String methodName = md.getNameAsString();
+    assert methodName.startsWith(propertyKind.prefix);
+    @SuppressWarnings("index") // https://github.com/typetools/checker-framework/issues/5201
+    String upperCamelCaseProperty = methodName.substring(propertyKind.prefix.length());
+    if (upperCamelCaseProperty.length() == 0) {
+      return null;
+    }
+    if (propertyKind == PropertyKind.GETTER_NO_PREFIX) {
+      return upperCamelCaseProperty;
+    } else if (!Character.isUpperCase(upperCamelCaseProperty.charAt(0))) {
+      return null;
+    } else {
+      return ""
+          + Character.toLowerCase(upperCamelCaseProperty.charAt(0))
+          + upperCamelCaseProperty.substring(1);
+    }
+  }
+
+  /**
+   * Returns true if the signature of the given method is a property accessor of the given kind.
+   *
+   * @param md the method
+   * @param propertyKind the kind of property
+   * @param propertyName the name of the property
+   * @return true if the body of the given method is a property accessor
+   */
+  private boolean hasCorrectSignature(
+      MethodDeclaration md, PropertyKind propertyKind, String propertyName) {
+    NodeList<Parameter> parameters = md.getParameters();
+    if (parameters.size() != propertyKind.requiredParams) {
+      return false;
+    }
+    if (parameters.size() == 1) {
+      Parameter parameter = parameters.get(0);
+      if (!parameter.getNameAsString().equals(propertyName)) {
+        return false;
+      }
+    }
+    // Check presence/absence of return type. (The Java compiler will verify
+    // that the type is consistent with the method body.)
+    Type returnType = md.getType();
+    switch (propertyKind.returnType) {
+      case VOID:
+        if (!returnType.isVoidType()) {
+          return false;
+        }
+        break;
+      case BOOLEAN:
+        if (!returnType.equals(PrimitiveType.booleanType())) {
+          return false;
+        }
+        break;
+      case NON_VOID:
+        if (returnType.isVoidType()) {
+          return false;
+        }
+        break;
+      default:
+        throw new Error("Unexpected enum value " + propertyKind.returnType);
+    }
+    return true;
+  }
+
+  /**
+   * Returns true if the body of the given method is a property accessor of the given kind.
+   *
+   * @param md the method
+   * @param propertyKind the kind of property
+   * @param propertyName the name of the property
+   * @return true if the body of the given method is a property accessor
+   */
+  private boolean hasCorrectBody(
+      MethodDeclaration md, PropertyKind propertyKind, String propertyName) {
+    Statement statement = getOnlyStatement(md);
+    if (propertyKind.isGetter()) {
+      if (!(statement instanceof ReturnStmt)) {
+        return false;
+      }
+      Optional<Expression> oReturnExpr = ((ReturnStmt) statement).getExpression();
+      if (!oReturnExpr.isPresent()) {
+        return false;
+      }
+      Expression returnExpr = oReturnExpr.get();
+      // Does not handle parentheses.
+      if (propertyKind == PropertyKind.GETTER_NOT) {
+        if (!(returnExpr instanceof UnaryExpr)) {
+          return false;
+        }
+        UnaryExpr unary = (UnaryExpr) returnExpr;
+        if (unary.getOperator() != UnaryExpr.Operator.LOGICAL_COMPLEMENT) {
+          return false;
+        }
+        returnExpr = unary.getExpression();
+      }
+      String returnName;
+      // Does not handle parentheses.
+      if (returnExpr instanceof NameExpr) {
+        returnName = ((NameExpr) returnExpr).getNameAsString();
+      } else if (returnExpr instanceof FieldAccessExpr) {
+        FieldAccessExpr fa = (FieldAccessExpr) returnExpr;
+        Expression receiver = fa.getScope();
+        if (!(receiver instanceof ThisExpr)) {
+          return false;
+        }
+        returnName = fa.getNameAsString();
+      } else {
+        return false;
+      }
+      if (!returnName.equals(propertyName)) {
+        return false;
+      }
+      return true;
+    } else if (propertyKind == PropertyKind.SETTER) {
+      if (!(statement instanceof ExpressionStmt)) {
+        return false;
+      }
+      Expression expr = ((ExpressionStmt) statement).getExpression();
+      if (!(expr instanceof AssignExpr)) {
+        return false;
+      }
+      AssignExpr assignExpr = (AssignExpr) expr;
+      Expression target = assignExpr.getTarget();
+      AssignExpr.Operator op = assignExpr.getOperator();
+      Expression value = assignExpr.getValue();
+      if (!(target instanceof FieldAccessExpr)) {
+        return false;
+      }
+      FieldAccessExpr fa = (FieldAccessExpr) target;
+      Expression receiver = fa.getScope();
+      if (!(receiver instanceof ThisExpr)) {
+        return false;
+      }
+      if (!fa.getNameAsString().equals(propertyName)) {
+        return false;
+      }
+      if (op != AssignExpr.Operator.ASSIGN) {
+        return false;
+      }
+      if (!(value instanceof NameExpr
+          && ((NameExpr) value).getNameAsString().equals(propertyName))) {
+        return false;
+      }
+      return true;
+    } else {
+      throw new Error("unexpected PropertyKind " + propertyKind);
+    }
+  }
+
+  /**
+   * If the body contains exactly one statement, returns it. Otherwise, returns null.
+   *
+   * @param md a method declaration
+   * @return its sole statement, or null
+   */
+  private @Nullable Statement getOnlyStatement(MethodDeclaration md) {
+    Optional<BlockStmt> body = md.getBody();
+    if (!body.isPresent()) {
+      return null;
+    }
+    NodeList<Statement> statements = body.get().getStatements();
+    if (statements.size() != 1) {
+      return null;
+    }
+    return statements.get(0);
   }
 
   /** Visits an AST and collects warnings about missing Javadoc. */
   private class RequireJavadocVisitor extends VoidVisitorAdapter<Void> {
 
     /** The file being visited. Used for constructing error messages. */
-    Path filename;
+    private Path filename;
 
     /**
      * Create a new RequireJavadocVisitor.
      *
      * @param filename the file being visited; used for diagnostic messages
      */
-    RequireJavadocVisitor(Path filename) {
+    public RequireJavadocVisitor(Path filename) {
       this.filename = filename;
     }
 
@@ -371,6 +732,9 @@ public class RequireJavadoc {
       if (dont_require_private && cd.isPrivate()) {
         return;
       }
+      if (dont_require_noarg_constructor && cd.getParameters().size() == 0) {
+        return;
+      }
       String name = cd.getNameAsString();
       if (shouldNotRequire(name)) {
         return;
@@ -387,6 +751,12 @@ public class RequireJavadoc {
     @Override
     public void visit(MethodDeclaration md, Void ignore) {
       if (dont_require_private && md.isPrivate()) {
+        return;
+      }
+      if (dont_require_trivial_properties && isTrivialGetterOrSetter(md)) {
+        if (verbose) {
+          System.out.printf("skipping trivial property method %s%n", md.getNameAsString());
+        }
         return;
       }
       String name = md.getNameAsString();
@@ -521,7 +891,7 @@ public class RequireJavadoc {
    * @param n the node to check for a Javadoc comment
    * @return true if this node has a Javadoc comment
    */
-  boolean hasJavadocComment(Node n) {
+  private boolean hasJavadocComment(Node n) {
     if (n instanceof NodeWithJavadoc && ((NodeWithJavadoc<?>) n).hasJavaDocComment()) {
       return true;
     }

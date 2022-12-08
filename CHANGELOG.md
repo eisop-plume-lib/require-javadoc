@@ -1,5 +1,25 @@
 # Require-Javadoc change log
 
+## 1.0.6 (2022-12-02)
+
+Support JDK 19.
+
+Don't transitively depend on commons-text 1.9, which is subject to CVE-2022-42889.
+
+## 1.0.5 (2022-10-02)
+
+`--dont-require-trivial-properties` supports unprefixed, record-style getters.
+
+## 1.0.4 (2022-07-13)
+
+Support new command-line options:
+ * `--dont-require-noarg-constructor`
+ * `--dont-require-trivial-properties`
+
+## 1.0.3 (2022-01-25)
+
+Support JDK 17.
+
 ## 1.0.2 (2021-04-30)
 
 Reduced jar size.  No user-visible behavior changes.
@@ -9,11 +29,11 @@ Reduced jar size.  No user-visible behavior changes.
 Warn about missing package documentation in file package-info.java.
 
 Support new command-line options:
- * --dont-require-private
- * --dont-require-type
- * --dont-require-field
- * --dont-require-method
- * --require-package-info
+ * `--dont-require-private`
+ * `--dont-require-type`
+ * `--dont-require-field`
+ * `--dont-require-method`
+ * `--require-package-info`
 
 Fix bug related to `//` comments before `@Override` annotation
 
@@ -32,7 +52,7 @@ Fix bug related to `//` comments before `@Override` annotation
 
 ## 0.1.3
 
-- Add `-verbose` command-line argument, for debugging.
+- Add `--verbose` command-line argument, for debugging.
 
 ## 0.1.2 (2019-06-04)
 
