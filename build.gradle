@@ -3,17 +3,17 @@ plugins {
   id 'application'
 
   // To create a fat jar build/libs/...-all.jar, run: ./gradlew shadowJar
-  id 'com.github.johnrengelman.shadow' version '7.1.2'
+  id 'com.github.johnrengelman.shadow' version '8.1.1'
 
   // Code formatting; defines targets "spotlessApply" and "spotlessCheck"
-  // Requires JDK 11 or higher.
-  id 'com.diffplug.spotless' version '6.14.0' apply false
+  // Requires JDK 11 or higher; the plugin crashes under JDK 8.
+  id 'com.diffplug.spotless' version '6.22.0'
 
   // Error Prone linter
-  id('net.ltgt.errorprone') version '3.0.1'
+  id('net.ltgt.errorprone') version '3.1.0'
 
   // Checker Framework pluggable type-checking
-  id 'org.checkerframework' version '0.6.23'
+  id 'org.checkerframework' version '0.6.34'
 }
 
 repositories {
@@ -21,12 +21,8 @@ repositories {
 }
 
 dependencies {
-  implementation 'com.github.javaparser:javaparser-core:3.25.0'
-  if (JavaVersion.current() == JavaVersion.VERSION_1_8) {
-    implementation 'org.plumelib:options:1.0.6'
-  } else {
-    implementation 'org.plumelib:options:2.0.3'
-  }
+  implementation 'com.github.javaparser:javaparser-core:3.25.5'
+  implementation 'org.plumelib:options:2.0.3'
 }
 
 // To upload to Maven Central, see instructions in the file.
@@ -36,52 +32,46 @@ application {
   mainClass = 'org.plumelib.javadoc.RequireJavadoc'
 }
 
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
+sourceCompatibility = 11
+targetCompatibility = 11
 
 
-ext.isJava11orHigher = JavaVersion.current() >= JavaVersion.VERSION_11
-if (isJava11orHigher) {
-  apply plugin: 'com.diffplug.spotless'
-  spotless {
-    format 'misc', {
-      // define the files to apply `misc` to
-      target '*.gradle', '*.md', '.gitignore'
+spotless {
+  format 'misc', {
+    // define the files to apply `misc` to
+    target '*.md', '.gitignore'
 
-      // define the steps to apply to those files
-      trimTrailingWhitespace()
-      indentWithSpaces(2)
-      endWithNewline()
-    }
-    java {
-      targetExclude('**/WeakIdentityHashMap.java')
-      googleJavaFormat()
-      formatAnnotations()
-    }
-    groovyGradle {
-      target '**/*.gradle'
-      greclipse()  // which formatter Spotless should use to format .gradle files.
-      indentWithSpaces(2)
-      trimTrailingWhitespace()
-      // endWithNewline() // Don't want to end empty files with a newline
-    }
+    // define the steps to apply to those files
+    trimTrailingWhitespace()
+    indentWithSpaces(2)
+    endWithNewline()
+  }
+  java {
+    targetExclude('**/WeakIdentityHashMap.java')
+    googleJavaFormat()
+    formatAnnotations()
+  }
+  groovyGradle {
+    target '**/*.gradle'
+    greclipse()  // which formatter Spotless should use to format .gradle files.
+    indentWithSpaces(2)
+    trimTrailingWhitespace()
+    // endWithNewline() // Don't want to end empty files with a newline
   }
 }
 
 /// Error Prone linter
 
 dependencies {
-  errorprone('com.google.errorprone:error_prone_core:2.18.0')
+  errorprone('com.google.errorprone:error_prone_core:2.23.0')
 }
 tasks.withType(JavaCompile).configureEach {
   // "-processing" avoids javac warning "No processor claimed any of these annotations".
   options.compilerArgs << '-Xlint:all,-processing' << '-Werror'
   options.errorprone {
-    enabled = JavaVersion.current() != JavaVersion.VERSION_1_8
     // disable('ReferenceEquality') // Use Interning Checker instead.
-    // disable('StringSplitter') // obscure case isn't likely
+    // disable('StringSplitter') // Obscure case isn't likely.
     // disable('AnnotateFormatMethod') // Error Prone doesn't know about Checker Framework @FormatMethod
-    // disable('UseCorrectAssertInTests') // Java's `assert` statument is so much more readable
   }
 }
 
@@ -114,6 +104,7 @@ checkerFramework {
     '-Werror',
     '-AcheckPurityAnnotations',
     '-ArequirePrefixInWarningSuppressions',
+    '-AwarnRedundantAnnotations',
     '-AwarnUnneededSuppressions',
     '-AnoJreVersionCheck',
   ]
@@ -135,9 +126,7 @@ if (project.hasProperty('cfLocal')) {
 javadoc {
   options.addStringOption('Xwerror', '-Xdoclint:all')
   options.addStringOption('private', '-quiet')
-  if (JavaVersion.current().compareTo(org.gradle.api.JavaVersion.VERSION_1_9) >= 0) {
-    options.addStringOption('source', '8')
-  }
+  options.addStringOption('source', '11')
   doLast {
     ant.replaceregexp(match:"@import url\\('resources/fonts/dejavu.css'\\);\\s*", replace:'',
     flags:'g', byline:true) {
@@ -152,9 +141,7 @@ task javadocWeb(type: Javadoc) {
   source = sourceSets.main.allJava
   destinationDir = file("/cse/web/research/plumelib/${project.name}/api")
   classpath = project.sourceSets.main.compileClasspath
-  if (JavaVersion.current().compareTo(org.gradle.api.JavaVersion.VERSION_1_9) >= 0) {
-    options.addStringOption('source', '8')
-  }
+  options.addStringOption('source', '11')
   doLast {
     ant.replaceregexp(match:"@import url\\('resources/fonts/dejavu.css'\\);\\s*", replace:'',
     flags:'g', byline:true) {
@@ -171,9 +158,9 @@ dependencies {
   requireJavadoc 'org.plumelib:require-javadoc:1.0.6'
 }
 task requireJavadoc(type: JavaExec) {
-  // "dependsOn jar" because this is the requireJavadoc project, and Gradle uses
-  // the built-from-source version of 'org.plumelib:require-javadoc'.  So declare
-  // a dependency on it.
+  // "dependsOn jar" because this is the requireJavadoc project itself, and
+  // Gradle uses the built-from-source version of
+  // 'org.plumelib:require-javadoc'.  So declare a dependency on it.
   dependsOn jar
   description = 'Ensures that Javadoc documentation exists.'
   mainClass = 'org.plumelib.javadoc.RequireJavadoc'
