@@ -82,7 +82,7 @@ apply plugin: 'org.checkerframework'
 dependencies {
   compileOnly 'io.github.eisop:checker-qual:3.42.0-eisop3'
   testCompileOnly 'io.github.eisop:checker-qual:3.42.0-eisop3'
-  checkerFramework 'io.github.eisop:checker:3.42.0-eisop2'
+  checkerFramework 'io.github.eisop:checker:3.42.0-eisop3'
 }
 
 checkerFramework {
