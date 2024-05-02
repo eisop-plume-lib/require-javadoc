@@ -9,7 +9,7 @@ export SHELLOPTS
 
 export JAVA_HOME=${JAVA_HOME:-$(dirname $(dirname $(readlink -f $(which javac))))}
 
-git -C /tmp clone --depth 1 -q https://github.com/plume-lib/plume-scripts.git
+git -C /tmp clone --depth 1 -q https://github.com/eisop-plume-lib/plume-scripts.git
 
 export CHECKERFRAMEWORK="${CHECKERFRAMEWORK:-$(pwd -P)/../checker-framework}"
 
