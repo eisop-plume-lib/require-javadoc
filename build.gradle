@@ -37,6 +37,7 @@ ext {
 
 dependencies {
   implementation "com.google.errorprone:error_prone_annotations:${errorproneVersion}"
+  errorprone("com.google.errorprone:error_prone_core:${errorproneVersion}")
   implementation 'com.github.javaparser:javaparser-core:3.26.0'
   implementation 'org.plumelib:options:2.0.3'
   implementation 'com.google.code.gson:gson:2.11.0'
@@ -84,9 +85,6 @@ if (isJava11orHigher) {
 
 /// Error Prone linter
 
-dependencies {
-  errorprone("com.google.errorprone:error_prone_core:${errorproneVersion}")
-}
 tasks.withType(JavaCompile).configureEach {
   // "-processing" avoids javac warning "No processor claimed any of these annotations".
   // "-Xlint:-options" is because of JDK 21 warning "source value 8 is obsolete..."
