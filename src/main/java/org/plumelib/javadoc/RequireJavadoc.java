@@ -3,6 +3,7 @@ package org.plumelib.javadoc;
 import static com.github.javaparser.utils.PositionUtils.sortByBeginPosition;
 
 import com.github.javaparser.ParseProblemException;
+import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.Position;
 import com.github.javaparser.Range;
 import com.github.javaparser.StaticJavaParser;
@@ -19,6 +20,7 @@ import com.github.javaparser.ast.body.EnumDeclaration;
 import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.body.Parameter;
+import com.github.javaparser.ast.body.RecordDeclaration;
 import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.comments.Comment;
 import com.github.javaparser.ast.expr.AnnotationExpr;
@@ -63,7 +65,7 @@ import org.plumelib.options.Options;
  * A program that issues an error for any class, constructor, method, or field that lacks a Javadoc
  * comment. Does not issue a warning for methods annotated with {@code @Override}. See documentation
  * at <a
- * href="https://github.com/plume-lib/require-javadoc#readme">https://github.com/plume-lib/require-javadoc#readme</a>.
+ * href="https://github.com/plume-lib/require-javadoc">https://github.com/plume-lib/require-javadoc</a>.
  */
 public class RequireJavadoc {
 
@@ -126,7 +128,7 @@ public class RequireJavadoc {
   @Option("Don't report problems in trivial getters and setters")
   public boolean dont_require_trivial_properties;
 
-  /** If true, don't check type declarations: classes, interfaces, enums, annotations. */
+  /** If true, don't check type declarations: classes, interfaces, enums, annotations, records. */
   @Option("Don't report problems in type declarations")
   public boolean dont_require_type;
 
@@ -167,9 +169,9 @@ public class RequireJavadoc {
 
   /**
    * The main entry point for the require-javadoc program. See documentation at <a
-   * href="https://github.com/plume-lib/require-javadoc#readme">https://github.com/plume-lib/require-javadoc#readme</a>.
+   * href="https://github.com/plume-lib/require-javadoc">https://github.com/plume-lib/require-javadoc</a>.
    *
-   * @param args the command-line arguments; see the README file
+   * @param args the command-line arguments; see the README.md file
    */
   public static void main(String[] args) {
     RequireJavadoc rj = new RequireJavadoc();
@@ -185,6 +187,9 @@ public class RequireJavadoc {
         System.out.println("Checking " + javaFile);
       }
       try {
+        ParserConfiguration parserConfiguration = new ParserConfiguration();
+        parserConfiguration.setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_17);
+        StaticJavaParser.setConfiguration(parserConfiguration);
         CompilationUnit cu = StaticJavaParser.parse(javaFile);
         RequireJavadocVisitor visitor = rj.new RequireJavadocVisitor(javaFile);
         visitor.visit(cu, null);
@@ -210,7 +215,11 @@ public class RequireJavadoc {
    *
    * @param args the directories and files listed on the command line
    */
-  @SuppressWarnings("lock:methodref.receiver") // no locking here
+  @SuppressWarnings({
+    "lock:unneeded.suppression", // TEMPORARY, until a CF release is made
+    "lock:methodref.receiver", // Comparator.comparing
+    "lock:type.arguments.not.inferred" // Comparator.comparing
+  })
   private void setJavaFiles(String[] args) {
     if (args.length == 0) {
       args = new String[] {workingDirAbsolute.toString()};
@@ -865,6 +874,26 @@ public class RequireJavadoc {
         errors.add(errorString(amd, name));
       }
       super.visit(amd, ignore);
+    }
+
+    @Override
+    public void visit(RecordDeclaration rd, Void ignore) {
+      if (dont_require_private && rd.isPrivate()) {
+        return;
+      }
+      String name = rd.getNameAsString();
+      if (shouldNotRequire(name)) {
+        return;
+      }
+      if (verbose) {
+        System.out.printf("Visiting record %s%n", name);
+      }
+      if (!dont_require_type && !hasJavadocComment(rd)) {
+        errors.add(errorString(rd, name));
+      }
+      // Don't warn about record parameters, because Javadoc requires @param for them in the record
+      // declaration itself.
+      super.visit(rd, ignore);
     }
 
     /**
