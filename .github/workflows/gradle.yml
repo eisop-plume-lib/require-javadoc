@@ -30,4 +30,4 @@ jobs:
     - name: ./gradlew requireJavadoc
       run: ./gradlew requireJavadoc
     - name: ./gradlew spotlessCheck
-      run: ./gradlew spotlessCheck
+      run: [ "${{ matrix.java }}" = "8" ] || ./gradlew spotlessCheck
