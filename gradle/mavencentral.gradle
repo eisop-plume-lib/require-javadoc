@@ -43,12 +43,12 @@ publishing {
       pom {
         name = 'Require-Javadoc'
         description = 'Require Javadoc comments to be present.'
-        url = 'https://github.com/plume-lib/require-javadoc'
+        url = 'https://github.com/eisop-plume-lib/require-javadoc'
 
         scm {
-          connection = 'scm:git:git@github.com:plume-lib/require-javadoc.git'
-          developerConnection = 'scm:git:git@github.com:plume-lib/require-javadoc.git'
-          url = 'git@github.com:plume-lib/require-javadoc.git'
+          connection = 'scm:git:git@github.com:eisop-plume-lib/require-javadoc.git'
+          developerConnection = 'scm:git:git@github.com:eisop-plume-lib/require-javadoc.git'
+          url = 'git@github.com:eisop-plume-lib/require-javadoc.git'
         }
 
         licenses {

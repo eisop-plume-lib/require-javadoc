@@ -85,14 +85,14 @@ you can require Javadoc on all *changed* lines and lines
 adjacent to changed lines.  This is a way to incrementally get your code
 documented, without having to document it all at once.
 Here are example commands.  (They obtain and use a program
-[`ci-lint-diff`](https://github.com/plume-lib/plume-scripts/blob/master/ci-lint-diff),
-which is part of the [plume-scripts package](https://github.com/plume-lib/plume-scripts).)
+[`ci-lint-diff`](https://github.com/eisop-plume-lib/plume-scripts/blob/master/ci-lint-diff),
+which is part of the [plume-scripts package](https://github.com/eisop-plume-lib/plume-scripts).)
 
 ```
 if [ -d "/tmp/$USER/plume-scripts" ] ; then
   git -C /tmp/$USER/plume-scripts pull -q 2>&1
 else
-  mkdir -p /tmp/$USER && git -C /tmp/$USER/ clone --filter=blob:none -q https://github.com/plume-lib/plume-scripts.git
+  mkdir -p /tmp/$USER && git -C /tmp/$USER/ clone --filter=blob:none -q https://github.com/eisop-plume-lib/plume-scripts.git
 fi
 (./gradlew requireJavadoc > /tmp/warnings.txt 2>&1) || true
 /tmp/$USER/plume-scripts/ci-lint-diff /tmp/warnings.txt
@@ -155,7 +155,7 @@ Therefore, you may want to use all three.
        `-Xdoclint` provides
        [only](https://docs.oracle.com/en/java/javase/17/docs/specs/man/javadoc.html#additional-options-provided-by-the-standard-doclet)
        the key `-missing`, which is very coarse.
-   The [`ci-lint-diff`](https://github.com/plume-lib/plume-scripts/blob/master/ci-lint-diff)
+   The [`ci-lint-diff`](https://github.com/eisop-plume-lib/plume-scripts/blob/master/ci-lint-diff)
    program is still useful for everyone.
    `require-javadoc` never requires comments on a default constructor, which does not appear in
    source code, but `javadoc -Xdoclint:all` does, reporting "warning: use of default constructor,
