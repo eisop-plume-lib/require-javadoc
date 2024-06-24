@@ -104,10 +104,32 @@ tasks.withType(JavaCompile).configureEach {
 
 apply plugin: 'org.checkerframework'
 
+if (true) {
+  // Use the released version of the EISOP Checker Framework.
+  ext.checkerFrameworkVersion = '3.42.0-eisop3'
+} else {
+  // To use a snapshot version of the EISOP Checker Framework.
+  // TODO: Change the above test to false to use a snapshot.
+  ext.checkerFrameworkVersion = '3.42.0-eisop3-SNAPSHOT'
+  configurations.all {
+    resolutionStrategy.cacheChangingModulesFor 0, 'minutes'
+  }
+}
+
 dependencies {
-  compileOnly 'io.github.eisop:checker-qual:3.42.0-eisop3'
-  testCompileOnly 'io.github.eisop:checker-qual:3.42.0-eisop3'
-  checkerFramework 'io.github.eisop:checker:3.42.0-eisop3'
+  compileOnly "io.github.eisop:checker-qual:${checkerFrameworkVersion}"
+  testCompileOnly "io.github.eisop:checker-qual:${checkerFrameworkVersion}"
+  checkerFramework "io.github.eisop:checker:${checkerFrameworkVersion}"
+}
+
+// To use a locally-built Checker Framework, run gradle with "-PcfLocal".
+if (project.hasProperty('cfLocal')) {
+  def cfHome = String.valueOf(System.getenv('CHECKERFRAMEWORK'))
+  dependencies {
+    compileOnly files(cfHome + '/checker/dist/checker-qual.jar')
+    testCompileOnly files(cfHome + '/checker/dist/checker-qual.jar')
+    checkerFramework files(cfHome + '/checker/dist/checker.jar')
+  }
 }
 
 checkerFramework {
@@ -134,28 +156,6 @@ checkerFramework {
     '-AwarnUnneededSuppressions',
     '-AnoJreVersionCheck',
   ]
-}
-// To use a snapshot version of the Checker Framework.
-if (false) {
-  // TODO: Change the above test to false when CF is released.
-  ext.checkerFrameworkVersion = '3.44.0'
-  dependencies {
-    compileOnly "org.checkerframework:checker-qual:${checkerFrameworkVersion}"
-    testCompileOnly "org.checkerframework:checker-qual:${checkerFrameworkVersion}"
-    checkerFramework "org.checkerframework:checker:${checkerFrameworkVersion}"
-  }
-  configurations.all {
-    resolutionStrategy.cacheChangingModulesFor 0, 'minutes'
-  }
-}
-// To use a locally-built Checker Framework, run gradle with "-PcfLocal".
-if (project.hasProperty('cfLocal')) {
-  def cfHome = String.valueOf(System.getenv('CHECKERFRAMEWORK'))
-  dependencies {
-    compileOnly files(cfHome + '/checker/dist/checker-qual.jar')
-    testCompileOnly files(cfHome + '/checker/dist/checker-qual.jar')
-    checkerFramework files(cfHome + '/checker/dist/checker.jar')
-  }
 }
 
 /// Javadoc
