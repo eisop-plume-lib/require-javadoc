@@ -1,3 +1,14 @@
+buildscript {
+  dependencies {
+    if (JavaVersion.current() >= JavaVersion.VERSION_11) {
+      // Code formatting; defines targets "spotlessApply" and "spotlessCheck".
+      // https://github.com/diffplug/spotless/tags ; see tags starting "gradle/"
+      // Only works on JDK 11+.
+      classpath 'com.diffplug.spotless:spotless-plugin-gradle:6.25.0'
+    }
+  }
+}
+
 plugins {
   id 'java'
   id 'application'
@@ -5,24 +16,30 @@ plugins {
   // To create a fat jar build/libs/...-all.jar, run: ./gradlew shadowJar
   id 'com.github.johnrengelman.shadow' version '8.1.1'
 
-  // Code formatting; defines targets "spotlessApply" and "spotlessCheck"
-  // Requires JDK 11 or higher; the plugin crashes under JDK 8.
-  id 'com.diffplug.spotless' version '6.25.0'
-
   // Error Prone linter
-  id('net.ltgt.errorprone') version '3.1.0'
+  id('net.ltgt.errorprone') version '4.0.1'
 
   // Checker Framework pluggable type-checking
-  id 'org.checkerframework' version '0.6.38'
+  id 'org.checkerframework' version '0.6.40'
 }
 
 repositories {
+  mavenLocal()
   mavenCentral()
+  maven { url 'https://oss.sonatype.org/content/repositories/snapshots/' }
+}
+
+ext.errorproneVersion = '2.28.0'
+
+ext {
+  isJava11orHigher = JavaVersion.current() >= JavaVersion.VERSION_11
 }
 
 dependencies {
-  implementation 'com.github.javaparser:javaparser-core:3.25.10'
+  implementation "com.google.errorprone:error_prone_annotations:${errorproneVersion}"
+  implementation 'com.github.javaparser:javaparser-core:3.26.0'
   implementation 'org.plumelib:options:2.0.3'
+  implementation 'com.google.code.gson:gson:2.11.0'
 }
 
 // To upload to Maven Central, see instructions in the file.
@@ -32,46 +49,54 @@ application {
   mainClass = 'org.plumelib.javadoc.RequireJavadoc'
 }
 
-sourceCompatibility = 11
-targetCompatibility = 11
+java {
+  sourceCompatibility = JavaVersion.VERSION_1_8
+  targetCompatibility = JavaVersion.VERSION_1_8
+}
 
 
-spotless {
-  format 'misc', {
-    // define the files to apply `misc` to
-    target '*.md', '.gitignore'
+if (isJava11orHigher) {
+  apply plugin: 'com.diffplug.spotless'
+  spotless {
+    format 'misc', {
+      // define the files to apply `misc` to
+      target '*.md', '.gitignore'
 
-    // define the steps to apply to those files
-    trimTrailingWhitespace()
-    indentWithSpaces(2)
-    endWithNewline()
-  }
-  java {
-    targetExclude('**/WeakIdentityHashMap.java')
-    googleJavaFormat()
-    formatAnnotations()
-  }
-  groovyGradle {
-    target '**/*.gradle'
-    greclipse()  // which formatter Spotless should use to format .gradle files.
-    indentWithSpaces(2)
-    trimTrailingWhitespace()
-    // endWithNewline() // Don't want to end empty files with a newline
+      // define the steps to apply to those files
+      trimTrailingWhitespace()
+      indentWithSpaces(2)
+      endWithNewline()
+    }
+    java {
+      targetExclude('**/WeakIdentityHashMap.java')
+      googleJavaFormat()
+      formatAnnotations()
+    }
+    groovyGradle {
+      target '**/*.gradle'
+      greclipse()  // which formatter Spotless should use to format .gradle files.
+      indentWithSpaces(2)
+      trimTrailingWhitespace()
+      // endWithNewline() // Don't want to end empty files with a newline
+    }
   }
 }
 
 /// Error Prone linter
 
 dependencies {
-  errorprone('com.google.errorprone:error_prone_core:2.26.1')
+  errorprone("com.google.errorprone:error_prone_core:${errorproneVersion}")
 }
 tasks.withType(JavaCompile).configureEach {
   // "-processing" avoids javac warning "No processor claimed any of these annotations".
-  options.compilerArgs << '-Xlint:all,-processing' << '-Werror'
+  // "-Xlint:-options" is because of JDK 21 warning "source value 8 is obsolete..."
+  options.compilerArgs << '-Xlint:all,-processing,-options' << '-Werror'
+  options.errorprone.enabled = isJava11orHigher
   options.errorprone {
-    // disable('ReferenceEquality') // Use Interning Checker instead.
-    // disable('StringSplitter') // Obscure case isn't likely.
-    // disable('AnnotateFormatMethod') // Error Prone doesn't know about Checker Framework @FormatMethod
+    disable('ExtendsObject')  // Incorrect when using the Checker Framework
+    disable('ReferenceEquality') // Use Interning Checker instead.
+    disable('AnnotateFormatMethod') // Error Prone doesn't know about Checker Framework @FormatMethod
+    disable('VoidUsed') // Appropriate in visitor pattern
   }
 }
 
@@ -101,7 +126,8 @@ checkerFramework {
     'org.checkerframework.common.initializedfields.InitializedFieldsChecker',
   ]
   extraJavacArgs = [
-    '-Werror',
+    // No "'-Werror'" because of JDK 21 warning "source value 8 is obsolete..."
+    // '-Werror',
     '-AcheckPurityAnnotations',
     '-ArequirePrefixInWarningSuppressions',
     '-AwarnRedundantAnnotations',
@@ -109,7 +135,19 @@ checkerFramework {
     '-AnoJreVersionCheck',
   ]
 }
-
+// To use a snapshot version of the Checker Framework.
+if (false) {
+  // TODO: Change the above test to false when CF is released.
+  ext.checkerFrameworkVersion = '3.44.0'
+  dependencies {
+    compileOnly "org.checkerframework:checker-qual:${checkerFrameworkVersion}"
+    testCompileOnly "org.checkerframework:checker-qual:${checkerFrameworkVersion}"
+    checkerFramework "org.checkerframework:checker:${checkerFrameworkVersion}"
+  }
+  configurations.all {
+    resolutionStrategy.cacheChangingModulesFor 0, 'minutes'
+  }
+}
 // To use a locally-built Checker Framework, run gradle with "-PcfLocal".
 if (project.hasProperty('cfLocal')) {
   def cfHome = String.valueOf(System.getenv('CHECKERFRAMEWORK'))
@@ -124,9 +162,11 @@ if (project.hasProperty('cfLocal')) {
 
 // Turn Javadoc warnings into errors.
 javadoc {
-  options.addStringOption('Xwerror', '-Xdoclint:all')
+  // No "'-Werror'" because of JDK 21 warning "source value 8 is obsolete..."
+  // options.addStringOption('Xwerror', '-Xdoclint:all')
+  options.addStringOption('Xdoclint:all', '-quiet')
   options.addStringOption('private', '-quiet')
-  options.addStringOption('source', '11')
+  options.addStringOption('source', '8')
   doLast {
     ant.replaceregexp(match:"@import url\\('resources/fonts/dejavu.css'\\);\\s*", replace:'',
     flags:'g', byline:true) {
@@ -141,11 +181,18 @@ task javadocWeb(type: Javadoc) {
   source = sourceSets.main.allJava
   destinationDir = file("/cse/web/research/plumelib/${project.name}/api")
   classpath = project.sourceSets.main.compileClasspath
-  options.addStringOption('source', '11')
+  options.addStringOption('source', '8')
   doLast {
     ant.replaceregexp(match:"@import url\\('resources/fonts/dejavu.css'\\);\\s*", replace:'',
     flags:'g', byline:true) {
       fileset(dir: destinationDir)
+    }
+    // Set permissions
+    project.exec {
+      commandLine('chgrp', '-R',  'plse_www', "/cse/web/research/plumelib/${project.name}/api")
+    }
+    project.exec {
+      commandLine('chmod', '-R',  'g+w', "/cse/web/research/plumelib/${project.name}/api")
     }
   }
 }
@@ -162,6 +209,7 @@ task requireJavadoc(type: JavaExec) {
   // Gradle uses the built-from-source version of
   // 'org.plumelib:require-javadoc'.  So declare a dependency on it.
   dependsOn jar
+  group = 'Documentation'
   description = 'Ensures that Javadoc documentation exists.'
   mainClass = 'org.plumelib.javadoc.RequireJavadoc'
   classpath = configurations.requireJavadoc
