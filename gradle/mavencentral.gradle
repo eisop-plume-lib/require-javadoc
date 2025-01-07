@@ -1,4 +1,4 @@
-        // REQUIREMENTS to make a release:
+// REQUIREMENTS to make a release:
 //  * Your ~/.gradle/gradle.properties file must contain:
 //     SONATYPE_NEXUS_USERNAME=...
 //     SONATYPE_NEXUS_PASSWORD=...
@@ -21,8 +21,8 @@
 apply plugin: 'maven-publish'
 apply plugin: 'signing'
 
-group 'org.plumelib'
-version '1.0.9'
+group = 'org.plumelib'
+version = '1.0.9'
 ext {
   packageName = 'require-javadoc'
 }

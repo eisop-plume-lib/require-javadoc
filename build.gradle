@@ -4,7 +4,7 @@ buildscript {
       // Code formatting; defines targets "spotlessApply" and "spotlessCheck".
       // https://github.com/diffplug/spotless/tags ; see tags starting "gradle/"
       // Only works on JDK 11+.
-      classpath 'com.diffplug.spotless:spotless-plugin-gradle:6.25.0'
+      classpath 'com.diffplug.spotless:spotless-plugin-gradle:7.0.1'
     }
   }
 }
@@ -17,27 +17,16 @@ plugins {
   id 'com.gradleup.shadow' version '8.3.5'
 
   // Error Prone linter
-  // TODO: Java 23: remove "apply false".
-  id('net.ltgt.errorprone') version '4.1.0' apply false
+  id 'net.ltgt.errorprone' version '4.1.0'
 
   // Checker Framework pluggable type-checking
-  id 'org.checkerframework' version '0.6.45'
-}
-
-// TODO: Java 23: remove this code block.
-if (JavaVersion.current() <= JavaVersion.VERSION_22) {
-  apply plugin: 'net.ltgt.errorprone'
-}
-
-// TODO: Java 23: remove this code block.
-if (JavaVersion.current() <= JavaVersion.VERSION_22) {
-  apply plugin: 'net.ltgt.errorprone'
+  id 'org.checkerframework' version '0.6.48' apply false
 }
 
 repositories {
   mavenLocal()
   mavenCentral()
-  maven { url 'https://oss.sonatype.org/content/repositories/snapshots/' }
+  maven { url = 'https://oss.sonatype.org/content/repositories/snapshots/' }
 }
 
 ext {
@@ -70,9 +59,6 @@ java {
 
 if (isJava11orHigher) {
   apply plugin: 'com.diffplug.spotless'
-
-// TODO: Why is this condition needed?
-if (! isJava21orHigher) {
   spotless {
     format 'misc', {
       // define the files to apply `misc` to
@@ -80,7 +66,7 @@ if (! isJava21orHigher) {
 
       // define the steps to apply to those files
       trimTrailingWhitespace()
-      indentWithSpaces(2)
+      leadingTabsToSpaces(2)
       endWithNewline()
     }
     java {
@@ -91,7 +77,7 @@ if (! isJava21orHigher) {
     groovyGradle {
       target '**/*.gradle'
       greclipse()  // which formatter Spotless should use to format .gradle files.
-      indentWithSpaces(2)
+      leadingTabsToSpaces(2)
       trimTrailingWhitespace()
       // endWithNewline() // Don't want to end empty files with a newline
     }
@@ -119,7 +105,7 @@ apply plugin: 'org.checkerframework'
 
 if (true) {
   // Use the released version of the EISOP Checker Framework.
-  ext.checkerFrameworkVersion = '3.42.0-eisop3'
+  ext.checkerFrameworkVersion = '3.42.0-eisop5'
 } else {
   // To use a snapshot version of the EISOP Checker Framework.
   // TODO: Change the above test to false to use a snapshot.
@@ -132,6 +118,7 @@ if (true) {
 dependencies {
   compileOnly "io.github.eisop:checker-qual:${checkerFrameworkVersion}"
   testCompileOnly "io.github.eisop:checker-qual:${checkerFrameworkVersion}"
+  checkerFramework "io.github.eisop:checker-qual:${checkerFrameworkVersion}"
   checkerFramework "io.github.eisop:checker:${checkerFrameworkVersion}"
 }
 
@@ -168,6 +155,7 @@ checkerFramework {
     '-AwarnRedundantAnnotations',
     '-AwarnUnneededSuppressions',
     '-AnoJreVersionCheck',
+    '-Aversion',
   ]
 }
 
@@ -190,7 +178,7 @@ javadoc {
 check.dependsOn javadoc
 
 task javadocWeb(type: Javadoc) {
-  description 'Upload API documentation to website.'
+  description = 'Upload API documentation to website.'
   source = sourceSets.main.allJava
   destinationDir = file("/cse/web/research/plumelib/${project.name}/api")
   classpath = project.sourceSets.main.compileClasspath
@@ -234,6 +222,6 @@ check.dependsOn requireJavadoc
 
 /* Make Emacs TAGS table */
 task tags(type: Exec) {
-  description 'Run etags to create an Emacs TAGS table'
+  description = 'Run etags to create an Emacs TAGS table'
   commandLine 'bash', '-c', "find src/ -name '*.java' | sort | xargs etags"
 }
