@@ -2,8 +2,13 @@
 
 This program requires that a Javadoc comment is present on
 every Java class, constructor, method, and field.
-It does not require a Javadoc comment on methods with an `@Override` annotation,
-nor on fields named `serialVersionUID`.
+There are a few exceptions:
+
+ * methods with an `@Override` annotation.
+ * fields named `serialVersionUID`.
+ * record parameters/fields (because Javadoc
+   requires `@param` tags in the Javadoc for the record).
+ * see command-line arguments below for further customization.
 
 This tool makes no requirement about the Javadoc comment, beyond its existence.
 For example, this tool does not require the existence
@@ -19,7 +24,17 @@ missing comments are not as customizable as this tool is.
 Example usage, to check every `.java` file in or under the current directory:
 
 ```
-java -cp require-javadoc-all.jar org.plumelib.javadoc.RequireJavadoc
+java \
+  --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
+  --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
+  --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
+  --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
+  --add-opens=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
+  --add-opens=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
+  --add-opens=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
+  --add-opens=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
+  -cp require-javadoc-all.jar \
+  org.plumelib.javadoc.RequireJavadoc
 ```
 
 Details about invoking the program:
@@ -47,8 +62,9 @@ or any subdirectory.
 The `--dont-require` regex is matched against full package names and against simple
 (unqualified) names of classes, constructors, methods, and fields.
 
-A constructor with zero arguments is sometimes called a "default constructor", though that term
-means a no-argument constructor that the compiler synthesized when the programmer didn't write one.
+A constructor with zero arguments is sometimes called a "default constructor",
+though "default constructor" actually means a no-argument constructor that the
+compiler synthesized when the programmer didn't write any constructor.
 
 All boolean options default to false, and you can omit the `=<boolean>` to set them to true, for
 example just `--verbose`.
@@ -108,7 +124,7 @@ configurations {
   requireJavadoc
 }
 dependencies {
-  requireJavadoc "org.plumelib:require-javadoc:1.0.9"
+  requireJavadoc "org.plumelib:require-javadoc:2.0.0"
 }
 task requireJavadoc(type: JavaExec) {
   group = 'Documentation'
@@ -116,6 +132,16 @@ task requireJavadoc(type: JavaExec) {
   mainClass = "org.plumelib.javadoc.RequireJavadoc"
   classpath = configurations.requireJavadoc
   args "src/main/java"
+  jvmArgs += [
+    '--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED',
+    '--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED',
+    '--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED',
+    '--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED',
+    '--add-opens=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED',
+    '--add-opens=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED',
+    '--add-opens=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED',
+    '--add-opens=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED',
+  ]
 }
 check.dependsOn requireJavadoc
 ```
@@ -155,9 +181,9 @@ Therefore, you may want to use all three.
        `-Xdoclint` provides
        [only](https://docs.oracle.com/en/java/javase/17/docs/specs/man/javadoc.html#additional-options-provided-by-the-standard-doclet)
        the key `-missing`, which is very coarse.
-   The [`ci-lint-diff`](https://github.com/eisop-plume-lib/plume-scripts/blob/master/ci-lint-diff)
-   program is still useful for everyone.
-   `require-javadoc` never requires comments on a default constructor, which does not appear in
+
+   A benefit of `require-javadoc` is that it never requires comments on a
+   default constructor, which does not appear in
    source code, but `javadoc -Xdoclint:all` does, reporting "warning: use of default constructor,
    which does not provide a comment".  To avoid such warnings, you can run javadoc with
    `-Xdoclint:all,-missing` and rely on `require-javadoc` to warn about missing comments
