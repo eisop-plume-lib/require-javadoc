@@ -279,7 +279,7 @@ public class RequireJavadoc {
   private class JavaFilesVisitor extends SimpleFileVisitor<Path> {
 
     /** Create a new JavaFilesVisitor. */
-    public JavaFilesVisitor() {}
+    JavaFilesVisitor() {}
 
     @Override
     public FileVisitResult visitFile(Path file, BasicFileAttributes attr) {
@@ -695,7 +695,7 @@ public class RequireJavadoc {
       "nullness:initialization.fields.uninitialized",
       "initializedfields:contracts.postcondition"
     }) // `visitTopLevel()` sets `cu`
-    public RequireJavadocVisitor(Path filename) {
+    RequireJavadocVisitor(Path filename) {
       this.filename = filename;
     }
 
