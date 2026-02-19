@@ -21,6 +21,9 @@ plugins {
   // Checker Framework pluggable type-checking
   id("org.checkerframework").version("1.0.2")
 
+  // To show task list as a tree, run: ./gradlew <taskname> taskTree
+  id("com.dorongold.task-tree").version("4.0.1")
+
   // Publishing to Maven Central.
   id("com.vanniktech.maven.publish").version("0.36.0")
 }
@@ -34,6 +37,7 @@ repositories {
 
 ext {
   errorproneVersion = "2.47.0"
+  eisopVersion = "3.49.3-eisop1"
   isJava17orHigher = JavaVersion.current() >= JavaVersion.VERSION_17
   isJava21orHigher = JavaVersion.current() >= JavaVersion.VERSION_21
 }
@@ -42,6 +46,10 @@ dependencies {
   implementation("com.github.javaparser:javaparser-core:3.28.0")
   implementation("org.plumelib:javac-parse:0.9.0")
   implementation("org.plumelib:options:2.0.3")
+
+  // EISOP Checker Framework dependencies
+  checkerQual("io.github.eisop:checker-qual:${eisopVersion}")
+  checkerFramework("io.github.eisop:checker:${eisopVersion}")
 }
 
 application {
@@ -146,37 +154,8 @@ pmdTest.enabled = false
 
 apply plugin: "org.checkerframework"
 
-if (true) {
-  // Use the released version of the EISOP Checker Framework.
-  ext.checkerFrameworkVersion = '3.49.3-eisop1'
-} else {
-  // To use a snapshot version of the EISOP Checker Framework.
-  // TODO: Change the above test to false to use a snapshot.
-  // ext.checkerFrameworkVersion = '3.49.3-eisop1-SNAPSHOT'
-  configurations.all {
-    resolutionStrategy.cacheChangingModulesFor 0, 'minutes'
-  }
-}
-
-dependencies {
-  compileOnly "io.github.eisop:checker-qual:${checkerFrameworkVersion}"
-  testCompileOnly "io.github.eisop:checker-qual:${checkerFrameworkVersion}"
-  checkerFramework "io.github.eisop:checker-qual:${checkerFrameworkVersion}"
-  checkerFramework "io.github.eisop:checker:${checkerFrameworkVersion}"
-}
-
-// To use a locally-built Checker Framework, run gradle with "-PcfLocal".
-if (project.hasProperty('cfLocal')) {
-  def cfHome = String.valueOf(System.getenv('CHECKERFRAMEWORK'))
-  dependencies {
-    compileOnly files(cfHome + '/checker/dist/checker-qual.jar')
-    testCompileOnly files(cfHome + '/checker/dist/checker-qual.jar')
-    checkerFramework files(cfHome + '/checker/dist/checker.jar')
-  }
-}
-
 checkerFramework {
-  version = libs.checker.get().version
+  version = "dependencies"
   checkers = [
     // No need to run CalledMethodsChecker, because ResourceLeakChecker does so.
     // "org.checkerframework.checker.calledmethods.CalledMethodsChecker",
