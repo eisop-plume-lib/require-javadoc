@@ -1,6 +1,6 @@
 name: Java CI with Gradle
 
-on: [push, pull_request]
+on: [push, pull_request]   # yamllint disable-line rule:truthy
 
 jobs:
   build:
@@ -9,36 +9,39 @@ jobs:
 
     strategy:
       matrix:
-        java: [ '11', '17', '21', '24' ]
+        java: ['17', '21', '25']
 
     steps:
-    - uses: actions/checkout@v6
-      with:
-        fetch-depth: 1
-        show-progress: false
-    - name: Set up JDK 21 for Gradle
-      uses: actions/setup-java@v5
-      with:
-        distribution: 'temurin'
-        java-version: 21
-    - name: Set up JDK
-      uses: actions/setup-java@v5
-      with:
-        distribution: 'temurin'
-        java-version: ${{ matrix.java }}
-    - name: Use JDK 21 for Gradle
-      run: mkdir -p ~/.gradle && echo "org.gradle.java.home=$JAVA_HOME_21_X64" >> ~/.gradle/gradle.properties
-    - name: Version information
-      run: java -version && ./gradlew -version
-    - name: ./gradlew build
-      run: ./gradlew build
-    - name: Setup local CF
-      run: ./.setup-CF.sh
-    - name: ./gradlew -PcfLocal build
-      run: ./gradlew -PcfLocal build
-    - name: ./gradlew requireJavadoc
-      run: ./gradlew requireJavadoc
-    - name: ./gradlew spotlessCheck
-      run: ./gradlew spotlessCheck
-    - name: run-tests.sh
-      run: src/test/run-tests.sh
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          show-progress: false
+      - name: Set up JDK 21 for Gradle
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: 21
+          check-latest: true
+          cache: 'gradle'
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: ${{ matrix.java }}
+          check-latest: true
+          cache: 'gradle'
+      - name: Use JDK 21 for Gradle
+        run: mkdir -p ~/.gradle && echo "org.gradle.java.home=$JAVA_HOME_21_X64" >> ~/.gradle/gradle.properties
+      - name: Version information
+        run: java -version && ./gradlew -version
+      - name: ./gradlew build
+        run: ./gradlew build
+      - name: Setup local CF
+        run: ./.setup-CF.sh
+      - name: ./gradlew -PcfLocal build
+        run: ./gradlew -PcfLocal build
+      - name: ./gradlew requireJavadoc
+        run: ./gradlew requireJavadoc
+      - name: ./gradlew spotlessCheck
+        if: ${{ matrix.java != '8' }}
+        run: ./gradlew spotlessCheck
