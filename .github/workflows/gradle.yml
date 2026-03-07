@@ -16,22 +16,13 @@ jobs:
         with:
           fetch-depth: 1
           show-progress: false
-      - name: Set up JDK 21 for Gradle
-        uses: actions/setup-java@v5
-        with:
-          distribution: 'temurin'
-          java-version: 21
-          check-latest: true
-          cache: 'gradle'
-      - name: Set up JDK
+      - name: Set up JDK ${{ matrix.java }}
         uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: ${{ matrix.java }}
           check-latest: true
           cache: 'gradle'
-      - name: Use JDK 21 for Gradle
-        run: mkdir -p ~/.gradle && echo "org.gradle.java.home=$JAVA_HOME_21_X64" >> ~/.gradle/gradle.properties
       - name: Version information
         run: java -version && ./gradlew -version
       - name: ./gradlew build
@@ -43,5 +34,5 @@ jobs:
       - name: ./gradlew requireJavadoc
         run: ./gradlew requireJavadoc
       - name: ./gradlew spotlessCheck
-        if: ${{ matrix.java != '8' }}
+        if: ${{ matrix.java != '8' && matrix.java != '11' }}
         run: ./gradlew spotlessCheck
