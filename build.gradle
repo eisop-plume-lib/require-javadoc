@@ -3,14 +3,14 @@ plugins {
   id("application")
 
   // To create a fat jar build/libs/...-all.jar, run: ./gradlew shadowJar
-  id("com.gradleup.shadow").version("9.3.1")
+  id("com.gradleup.shadow").version("9.3.2")
 
   // Code formatting; defines targets "spotlessApply" and "spotlessCheck"
   // Version 8.0.0 and later requires Java 17+.
-  id("com.diffplug.spotless").version("8.2.1")
+  id("com.diffplug.spotless").version("8.3.0")
 
   // Error Prone linter
-  id("net.ltgt.errorprone").version("5.0.0") apply false
+  id("net.ltgt.errorprone").version("5.1.0") apply false
 
   // PMD linter
   id("pmd")
@@ -36,7 +36,7 @@ repositories {
 }
 
 ext {
-  errorproneVersion = "2.47.0"
+  errorproneVersion = "2.48.0"
   eisopVersion = "3.49.3-eisop1"
   isJava17orHigher = JavaVersion.current() >= JavaVersion.VERSION_17
   isJava21orHigher = JavaVersion.current() >= JavaVersion.VERSION_21
@@ -141,7 +141,7 @@ if (isJava21orHigher) {
 // PMD linter
 
 pmd {
-  toolVersion = "7.21.0"
+  toolVersion = "7.22.0"
   ruleSetFiles = files("${rootDir}/.pmd-ruleset.xml")
   consoleOutput = true
   ignoreFailures = false
