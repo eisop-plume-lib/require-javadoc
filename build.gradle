@@ -45,7 +45,7 @@ ext {
 dependencies {
   implementation("com.github.javaparser:javaparser-core:3.28.2")
   implementation("org.plumelib:javac-parse:0.9.0")
-  implementation("org.plumelib:options:2.0.3")
+  implementation("org.plumelib:options:3.0.0")
 
   // EISOP Checker Framework dependencies
   checkerQual("io.github.eisop:checker-qual:${eisopVersion}")
